@@ -3,6 +3,11 @@
 This is a Home Assistant add-on named **AI Email**. Once the repository is
 added to Home Assistant, it appears under **Settings > Apps**.
 
+[![Add repository to my Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https://github.com/huseman21/AI-Email-for-HomeAssistant)
+
+Click the button above to add this repository to Home Assistant, then install
+the **AI Email** app from the app store.
+
 ## Development
 
 The add-on polls an IMAP mailbox for unread messages, sends each new message to
