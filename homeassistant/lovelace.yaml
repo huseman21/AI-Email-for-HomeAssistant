@@ -1,0 +1,82 @@
+title: AI Email
+views:
+  - title: Email review
+    path: email
+    icon: mdi:email-check-outline
+    cards:
+      - type: markdown
+        title: AI Email review
+        content: |
+          Review the last 10 messages classified by the configured local LLM.
+          New results appear automatically after the next `email_processed` event.
+
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: entity
+            entity: sensor.important_emails
+            name: Important emails
+            icon: mdi:email-alert-outline
+          - type: entity
+            entity: sensor.excluded_emails
+            name: Excluded emails
+            icon: mdi:email-remove-outline
+
+      - type: markdown
+        title: Latest activity
+        content: |
+          **Important:** {{ state_attr('sensor.important_emails', 'last_subject') or 'None yet' }}  
+          Total important processed: {{ state_attr('sensor.important_emails', 'total_processed') or 0 }}  
+          Last important update: {{ state_attr('sensor.important_emails', 'last_processed_at') or 'None yet' }}
+
+          **Excluded:** {{ state_attr('sensor.excluded_emails', 'last_subject') or 'None yet' }}  
+          Total excluded processed: {{ state_attr('sensor.excluded_emails', 'total_processed') or 0 }}  
+          Last excluded update: {{ state_attr('sensor.excluded_emails', 'last_processed_at') or 'None yet' }}
+
+      - type: grid
+        columns: 2
+        square: false
+        cards:
+          - type: markdown
+            title: Important
+            content: |
+              {% set emails = state_attr('sensor.important_emails', 'emails') or [] %}
+              {% if emails %}
+              {% for email in emails %}
+              **{{ email.subject }}**  
+              <small>{{ email.sender }}</small>  
+              {{ email.summary }}  
+              {% if email.viewer_url is defined and email.viewer_url %}
+              [Open full email]({{ email.viewer_url }})  
+              {% endif %}
+              {% if email.processed_at is defined and email.processed_at %}
+              <small>Processed: {{ as_timestamp(email.processed_at) | timestamp_custom('%Y-%m-%d %H:%M') }}</small>
+              {% endif %}
+
+              ---
+              {% endfor %}
+              {% else %}
+              No important emails have been processed.
+              {% endif %}
+          - type: markdown
+            title: Excluded
+            content: |
+              {% set emails = state_attr('sensor.excluded_emails', 'emails') or [] %}
+              {% if emails %}
+              {% for email in emails %}
+              **{{ email.subject }}**  
+              <small>{{ email.sender }}</small>  
+              {{ email.summary }}  
+              {% if email.viewer_url is defined and email.viewer_url %}
+              [Open full email]({{ email.viewer_url }})  
+              {% endif %}
+              {% if email.processed_at is defined and email.processed_at %}
+              <small>Processed: {{ as_timestamp(email.processed_at) | timestamp_custom('%Y-%m-%d %H:%M') }}</small>
+              {% endif %}
+
+              ---
+              {% endfor %}
+              {% else %}
+              No excluded emails have been processed.
+              {% endif %}

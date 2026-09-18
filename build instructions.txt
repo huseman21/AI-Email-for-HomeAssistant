@@ -1,0 +1,23 @@
+Act as an expert Home Assistant developer. Write the complete, production-ready code and configurations for a custom local email filtration system.
+
+Here are the technical requirements:
+
+1. HOME ASSISTANT CUSTOM INTEGRATION (or AppDaemon script):
+   - Connects to a local email server via IMAP settings configured via the homeassistants apps configureaion page
+   - Periodically fetches unread emails.
+   - For each new email, sends the sender, subject, and body text to a local Ollama instance via its HTTP API (e.g., using the `llama3` or `mistral` model). configured via the homeassistants apps configureaion page
+   - Prompt used for Ollama: "Analyze this email. Determine if it is 'important' or 'excluded' based on these criteria: [INSERT YOUR CRITERIA HERE]. Respond strictly in valid JSON format: {'status': 'important' or 'excluded', 'summary': 'short summary'}".  configured via the homeassistants apps configureaion page
+   - Parses the JSON response and fires a custom Home Assistant event (`email_processed`) containing the email data, status, and summary.
+
+2. HOME ASSISTANT TEMPLATE SENSORS:
+   - Create two Template Sensors (via configuration.yaml format) that listen to the `email_processed` event.
+   - Sensor 1: `sensor.important_emails` -> Maintains an array/list attribute of the last 10 'important' emails.
+   - Sensor 2: `sensor.excluded_emails` -> Maintains an array/list attribute of the last 10 'excluded' emails.
+
+3. HOME ASSISTANT DASHBOARD (Lovelace YAML):
+   - Provide the YAML code for a clean Lovelace dashboard view.
+   - Divide the view into two columns or windows using a horizontal stack or grid card.
+   - Column 1: Uses a Markdown Card or Flex Table Card to cleanly display the list of important emails (sender, subject, Ollama summary) from `sensor.important_emails`.
+   - Column 2: Uses a matching card to display the excluded emails from `sensor.excluded_emails`.
+
+Please provide the files cleanly, including any necessary python requirements (like `aiohttp` or `imaplib`), and explain exactly which directories to place them in.

@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.vscode/
+
+# Local Home Assistant and add-on runtime data
+*.log
+state.json
+settings.json
+options.json
+emails/

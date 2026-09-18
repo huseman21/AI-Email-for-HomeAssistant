@@ -1,0 +1,88 @@
+  - trigger:
+      - platform: event
+        event_type: email_processed
+        event_data:
+          status: important
+      - platform: event
+        event_type: email_deleted
+    sensor:
+      - name: Important Emails
+        unique_id: important_emails
+        state: >-
+          {% set count = this.attributes.get('emails', []) | list | length %}
+          {{ count if trigger.event.event_type == 'email_deleted' else [count + 1, 10] | min }}
+        attributes:
+          total_processed: >-
+            {{ this.attributes.get('total_processed', 0) | int(0)
+               if trigger.event.event_type == 'email_deleted'
+               else (this.attributes.get('total_processed', 0) | int(0)) + 1 }}
+          last_processed_at: >-
+            {{ this.attributes.get('last_processed_at', '')
+               if trigger.event.event_type == 'email_deleted' else now().isoformat() }}
+          last_subject: >-
+            {{ this.attributes.get('last_subject', '')
+               if trigger.event.event_type == 'email_deleted'
+               else trigger.event.data.subject }}
+          emails: >
+            {% set previous = this.attributes.get('emails', []) %}
+            {% if trigger.event.event_type == 'email_deleted' %}
+            {{ previous
+               | rejectattr('viewer_id', 'equalto', trigger.event.data.viewer_id)
+               | rejectattr('message_id', 'equalto', trigger.event.data.message_id)
+               | list }}
+            {% else %}
+            {% set item = {
+              'sender': trigger.event.data.sender,
+              'subject': trigger.event.data.subject,
+              'summary': trigger.event.data.summary,
+              'message_id': trigger.event.data.message_id,
+              'viewer_id': trigger.event.data.viewer_id,
+              'viewer_url': trigger.event.data.viewer_url,
+              'processed_at': now().isoformat()
+            } %}
+            {{ ([item] + previous)[:10] }}
+            {% endif %}
+  - trigger:
+      - platform: event
+        event_type: email_processed
+        event_data:
+          status: excluded
+      - platform: event
+        event_type: email_deleted
+    sensor:
+      - name: Excluded Emails
+        unique_id: excluded_emails
+        state: >-
+          {% set count = this.attributes.get('emails', []) | list | length %}
+          {{ count if trigger.event.event_type == 'email_deleted' else [count + 1, 10] | min }}
+        attributes:
+          total_processed: >-
+            {{ this.attributes.get('total_processed', 0) | int(0)
+               if trigger.event.event_type == 'email_deleted'
+               else (this.attributes.get('total_processed', 0) | int(0)) + 1 }}
+          last_processed_at: >-
+            {{ this.attributes.get('last_processed_at', '')
+               if trigger.event.event_type == 'email_deleted' else now().isoformat() }}
+          last_subject: >-
+            {{ this.attributes.get('last_subject', '')
+               if trigger.event.event_type == 'email_deleted'
+               else trigger.event.data.subject }}
+          emails: >
+            {% set previous = this.attributes.get('emails', []) %}
+            {% if trigger.event.event_type == 'email_deleted' %}
+            {{ previous
+               | rejectattr('viewer_id', 'equalto', trigger.event.data.viewer_id)
+               | rejectattr('message_id', 'equalto', trigger.event.data.message_id)
+               | list }}
+            {% else %}
+            {% set item = {
+              'sender': trigger.event.data.sender,
+              'subject': trigger.event.data.subject,
+              'summary': trigger.event.data.summary,
+              'message_id': trigger.event.data.message_id,
+              'viewer_id': trigger.event.data.viewer_id,
+              'viewer_url': trigger.event.data.viewer_url,
+              'processed_at': now().isoformat()
+            } %}
+            {{ ([item] + previous)[:10] }}
+            {% endif %}
