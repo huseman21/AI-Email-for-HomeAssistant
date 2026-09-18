@@ -5,8 +5,12 @@ added to Home Assistant, it appears under **Settings > Apps**.
 
 [![Open your Home Assistant instance and show the app store with this repository](https://my.home-assistant.io/badges/supervisor_store.svg)](https://my.home-assistant.io/redirect/supervisor_store/?repository_url=https%3A%2F%2Fgithub.com%2Fhuseman21%2FAI-Email-for-HomeAssistant)
 
-Click the button above to add this repository to Home Assistant, then install
-the **AI Email** app from the app store.
+The button opens the Home Assistant app store with this repository URL ready to
+add; Home Assistant still requires you to click **Add** or **Save** in the
+repository dialog. If the dialog is not shown, open the app store's
+three-dot menu, choose **Repositories**, paste
+`https://github.com/huseman21/AI-Email-for-HomeAssistant`, and click **Add**.
+Then install the **AI Email** app from the app store.
 
 ## Development
 
@@ -43,10 +47,10 @@ Home Assistant API request is logged and retried on a later polling cycle.
 Processing continues with other messages in the same cycle. Messages are
 tracked by both IMAP UID and RFC Message-ID to avoid duplicate classifications.
 
-The add-on can be installed from a local Home Assistant add-on repository:
+The add-on can also be installed from a local Home Assistant add-on repository:
 
-1. Place this folder inside a directory used for local add-ons, for example
-   `/addons/ai_email`.
+1. Place the `ai_email` folder inside a directory used for local add-ons, for
+   example `/addons/ai_email`.
 2. In Home Assistant, open **Settings > Apps**.
 3. Open the three-dot menu, choose **Repositories**, and add the parent
    directory containing this folder.
@@ -178,14 +182,14 @@ sidebar.
 
 ## Files
 
-- `config.yaml` - Home Assistant add-on metadata, options, and supported
+- `ai_email/config.yaml` - Home Assistant add-on metadata, options, and supported
   architectures.
-- `build.yaml` - Architecture-specific Home Assistant base images used to build
+- `ai_email/build.yaml` - Architecture-specific Home Assistant base images used to build
   the add-on locally.
-- `Dockerfile` - Container image definition.
-- `run.sh` - Legacy container entrypoint retained for compatibility.
-- `requirements.txt` - Python runtime dependency.
-- `app/main.py` - IMAP polling, LLM classification, state persistence, and
+- `ai_email/Dockerfile` - Container image definition.
+- `ai_email/run.sh` - Legacy container entrypoint retained for compatibility.
+- `ai_email/requirements.txt` - Python runtime dependency.
+- `ai_email/app/main.py` - IMAP polling, LLM classification, state persistence, and
   Home Assistant event publishing.
 - `homeassistant/template_sensors.yaml` - Trigger-based email sensors.
 - `homeassistant/lovelace.yaml` - Two-column dashboard view.
