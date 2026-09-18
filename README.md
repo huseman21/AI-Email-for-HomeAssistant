@@ -3,14 +3,11 @@
 This is a Home Assistant add-on named **AI Email**. Once the repository is
 added to Home Assistant, it appears under **Settings > Apps**.
 
-[![Open your Home Assistant instance and show the app store with this repository](https://my.home-assistant.io/badges/supervisor_store.svg)](https://my.home-assistant.io/redirect/supervisor_store/?repository_url=https%3A%2F%2Fgithub.com%2Fhuseman21%2FAI-Email-for-HomeAssistant)
+[![Add this app repository to your Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fhuseman21%2FAI-Email-for-HomeAssistant)
 
-The button opens the Home Assistant app store with this repository URL ready to
-add; Home Assistant still requires you to click **Add** or **Save** in the
-repository dialog. If the dialog is not shown, open the app store's
-three-dot menu, choose **Repositories**, paste
-`https://github.com/huseman21/AI-Email-for-HomeAssistant`, and click **Add**.
-Then install the **AI Email** app from the app store.
+Click the button to open Home Assistant's **Add repository** dialog with this
+repository URL prefilled, then confirm the dialog and install **AI Email** from
+the app store.
 
 ## Development
 
