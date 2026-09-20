@@ -294,6 +294,46 @@ async def classify(config: dict[str, Any], message: dict[str, str]) -> dict[str,
         '{"status":"important" or "excluded","summary":"short summary"}'
     )
     provider = str(config.get("llm_provider", "ollama")).strip().lower()
+    if provider == "home_assistant":
+        supervisor_token = os.environ.get("SUPERVISOR_TOKEN", "").strip()
+        api_token = str(config.get("homeassistant_api_token", "")).strip()
+        token = supervisor_token or api_token
+        if not token:
+            raise RuntimeError(
+                "Home Assistant conversation access requires the add-on Supervisor "
+                "token or a configured homeassistant_api_token"
+            )
+        endpoint = (
+            "http://supervisor/core/api/conversation/process"
+            if supervisor_token
+            else "http://homeassistant:8123/api/conversation/process"
+        )
+        request_payload: dict[str, Any] = {
+            "text": prompt,
+            "language": "en",
+        }
+        agent_id = str(config.get("homeassistant_conversation_agent", "")).strip()
+        if agent_id:
+            request_payload["agent_id"] = agent_id
+        payload = await http_json(
+            endpoint,
+            request_payload,
+            headers={"Authorization": "Bearer " + token},
+        )
+        response = payload.get("response")
+        response_text = ""
+        if isinstance(response, dict):
+            speech = response.get("speech")
+            if isinstance(speech, dict):
+                plain = speech.get("plain")
+                if isinstance(plain, dict) and isinstance(plain.get("speech"), str):
+                    response_text = plain["speech"]
+        if not response_text:
+            raise ValueError(
+                "Home Assistant conversation agent returned no response text. "
+                f"Response keys: {sorted(payload)}"
+            )
+        return parse_json_response(response_text)
     base_url = str(config.get("llm_base_url", "")).strip()
     model = str(config.get("llm_model", "")).strip()
     if not base_url:
@@ -335,7 +375,8 @@ async def classify(config: dict[str, Any], message: dict[str, str]) -> dict[str,
         }
     else:
         raise RuntimeError(
-            f"Unsupported llm_provider {provider!r}; use ollama or openai_compatible"
+            f"Unsupported llm_provider {provider!r}; use ollama, openai_compatible, "
+            "or home_assistant"
         )
 
     payload = await http_json(endpoint, request_payload, headers=headers)
@@ -481,11 +522,12 @@ async def run() -> None:
     model = str(config.get("llm_model", "")).strip() or str(
         config.get("ollama_model", "")
     ).strip()
-    if provider not in {"ollama", "openai_compatible"}:
+    if provider not in {"ollama", "openai_compatible", "home_assistant"}:
         raise RuntimeError(
-            f"Unsupported llm_provider {provider!r}; use ollama or openai_compatible"
+            f"Unsupported llm_provider {provider!r}; use ollama, openai_compatible, "
+            "or home_assistant"
         )
-    if not base_url or not model:
+    if provider != "home_assistant" and (not base_url or not model):
         raise RuntimeError(
             "Configure llm_base_url and llm_model in the AI Email app Configuration page"
         )

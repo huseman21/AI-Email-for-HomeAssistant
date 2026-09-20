@@ -1,5 +1,5 @@
 name: AI Email
-version: "1.5.20"
+version: "1.5.21"
 slug: ai_email
 description: Locally classify unread IMAP email with a configurable LLM and publish Home Assistant events.
 startup: services
@@ -41,6 +41,7 @@ options:
   llm_base_url: ""
   llm_model: llama3.2
   llm_api_key: ""
+  homeassistant_conversation_agent: ""
   ollama_url: ""
   ollama_model: ""
   classification_criteria: >-
@@ -75,10 +76,11 @@ schema:
   homeassistant_api_token: password
   viewer_port: int(1024,65535)
   viewer_base_url: url
-  llm_provider: list(ollama|openai_compatible)
+  llm_provider: list(ollama|openai_compatible|home_assistant)
   llm_base_url: str
   llm_model: str
   llm_api_key: password
+  homeassistant_conversation_agent: str
   ollama_url: str
   ollama_model: str
   classification_criteria: str

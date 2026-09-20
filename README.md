@@ -100,6 +100,12 @@ llm_model: your-koboldcpp-model
 llm_api_key: ""
 ```
 
+To use the conversation agent configured in Home Assistant, set
+`llm_provider: home_assistant`. This option uses the add-on's Supervisor token
+or `homeassistant_api_token`, so no LLM URL, model, or API key is required. It
+uses Home Assistant's default conversation agent unless
+`homeassistant_conversation_agent` is set to a specific conversation agent ID.
+
 The optional API key is sent as a Bearer token when provided. Existing
 configurations using `ollama_url` and `ollama_model` continue to work; the new
 `llm_*` settings take precedence when they are filled in.
