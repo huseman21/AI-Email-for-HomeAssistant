@@ -79,6 +79,16 @@ def _safe_html(body: str, message_id: str, route_prefix: str = "") -> str:
     body = re.sub(r"(?is)<style\b[^>]*>.*?</style\s*>", "", body)
     body = re.sub(r"(?i)\s+on[a-z]+\s*=\s*(['\"]).*?\1", "", body)
     body = re.sub(r"(?i)\s+(?:href|src)\s*=\s*(['\"])\s*javascript:.*?\1", "", body)
+    body = re.sub(
+        r"(?is)<a\b(?=[^>]*\bhref\s*=\s*(['\"])\s*https?://)[^>]*>",
+        lambda match: (
+            match.group(0)
+            if re.search(r"(?i)\btarget\s*=", match.group(0))
+            else match.group(0)[:-1]
+            + ' target="_blank" rel="noopener noreferrer">'
+        ),
+        body,
+    )
     body = body.replace(
         "cid:",
         f"{message_id}/attachment?cid=",
@@ -552,7 +562,7 @@ required>{html.escape(criteria)}</textarea><br><button class="save" type="submit
         if not sender or "@" not in sender or any(char.isspace() for char in sender):
             raise ValueError(
                 "Configure smtp_from or imap_username as a complete email address, "
-                "such as Youremail@gmail.com"
+                "such as YourEmail@gmail.com"
             )
         reply["From"] = sender
         reply["To"] = recipient
@@ -702,6 +712,14 @@ required>{html.escape(criteria)}</textarea><br><button class="save" type="submit
                         else ""
                     )
                     + (
+                        f'<form class="delete-form" method="post" action="email/{message_id}">'
+                        f'<button class="delete-button" type="submit" '
+                        "onclick=\"return confirm('Delete this email? This cannot be undone.');\">"
+                        "Delete</button></form>"
+                        if status == "excluded"
+                        else ""
+                    )
+                    + (
                         f'<form class="exclude-form" method="post" action="email/{message_id}/mark-excluded">'
                         f'<button class="exclude-button" type="submit" '
                         f'onclick="return confirm(\'Mark this email as excluded?\');">'
@@ -761,6 +779,7 @@ padding:26px;font-style:italic}}
 .allow-form{{display:inline-block;margin:0 0 0 12px}} .allow-button{{padding:6px 10px;
 font-size:12px;color:#137333;background:#fff;border:1px solid #b7dfc2}}
 .allow-button:hover{{background:#e6f4ea;border-color:#81c995}}
+.delete-form{{display:inline-block;margin:0 0 0 12px}}
 .exclude-form{{display:inline-block;margin:0 0 0 12px}} .exclude-button{{padding:6px 10px;
 font-size:12px;color:#c5221f;background:#fff;border:1px solid #f28b82}}
 .exclude-button:hover{{background:#fce8e6;border-color:#e06c65}}
