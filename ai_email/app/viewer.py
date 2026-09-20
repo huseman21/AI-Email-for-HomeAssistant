@@ -713,8 +713,7 @@ required>{html.escape(criteria)}</textarea><br><button class="save" type="submit
                     )
                     + (
                         f'<form class="delete-form" method="post" action="email/{message_id}">'
-                        f'<button class="delete-button" type="submit" '
-                        "onclick=\"return confirm('Delete this email? This cannot be undone.');\">"
+                        f'<button class="delete-button" type="submit">'
                         "Delete</button></form>"
                         if status in {"important", "excluded"}
                         else ""
