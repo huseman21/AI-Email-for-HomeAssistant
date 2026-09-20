@@ -205,6 +205,8 @@ class EmailViewerHandler(BaseHTTPRequestHandler):
                 self._reply(route_parts[1])
             elif len(route_parts) == 3 and route_parts[2] == "allow-sender":
                 self._allow_sender(route_parts[1])
+            elif len(route_parts) == 3 and route_parts[2] == "mark-excluded":
+                self._mark_excluded(route_parts[1])
             else:
                 self._send(
                     HTTPStatus.NOT_FOUND,
@@ -213,7 +215,11 @@ class EmailViewerHandler(BaseHTTPRequestHandler):
                 )
                 return
             self.send_response(HTTPStatus.SEE_OTHER)
-            if len(route_parts) == 3 and route_parts[2] in {"reply", "allow-sender"}:
+            if len(route_parts) == 3 and route_parts[2] in {
+                "reply",
+                "allow-sender",
+                "mark-excluded",
+            }:
                 # Keep the browser's Home Assistant ingress prefix. The
                 # ingress proxy may strip that prefix before forwarding the
                 # request, so an absolute /email/ redirect can escape ingress.
@@ -336,6 +342,30 @@ required>{html.escape(criteria)}</textarea><br><button class="save" type="submit
             self._publish_processed(message_id, message, metadata["summary"])
         except (OSError, urllib.error.URLError) as error:
             LOGGER.error("Could not update Home Assistant after allowing %s: %s", message_id, error)
+
+    def _mark_excluded(self, message_id: str) -> None:
+        message = self._load(message_id)
+        metadata = self._metadata(message_id)
+        metadata["status"] = "excluded"
+        metadata["summary"] = "Email manually marked as excluded."
+        metadata_path = self.root / f"{message_id}.json"
+        metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+        message_header_id = _decoded_header(message, "Message-ID")
+        try:
+            self._publish_deleted(message_id, message_header_id)
+            self._publish_processed(
+                message_id,
+                message,
+                metadata["summary"],
+                status="excluded",
+            )
+        except (OSError, urllib.error.URLError) as error:
+            LOGGER.error(
+                "Could not update Home Assistant after marking %s excluded: %s",
+                message_id,
+                error,
+            )
 
     def _send_error(self, status: int, message: str) -> None:
         content = f"""<!doctype html>
@@ -545,7 +575,13 @@ required>{html.escape(criteria)}</textarea><br><button class="save" type="submit
         with urllib.request.urlopen(request, timeout=15):
             pass
 
-    def _publish_processed(self, viewer_id: str, message: Message, summary: object) -> None:
+    def _publish_processed(
+        self,
+        viewer_id: str,
+        message: Message,
+        summary: object,
+        status: str = "important",
+    ) -> None:
         token = self.event_config.get("token", "")
         url = self.event_config.get("processed_url", "")
         if not token or not url:
@@ -557,7 +593,7 @@ required>{html.escape(criteria)}</textarea><br><button class="save" type="submit
                 "sender": _decoded_header(message, "From"),
                 "subject": _decoded_header(message, "Subject") or "(no subject)",
                 "body": "",
-                "status": "important",
+                "status": status,
                 "summary": str(summary),
                 "viewer_id": viewer_id,
                 "viewer_url": (
@@ -608,6 +644,14 @@ required>{html.escape(criteria)}</textarea><br><button class="save" type="submit
                         if status == "excluded"
                         else ""
                     )
+                    + (
+                        f'<form class="exclude-form" method="post" action="email/{message_id}/mark-excluded">'
+                        f'<button class="exclude-button" type="submit" '
+                        f'onclick="return confirm(\'Mark this email as excluded?\');">'
+                        "Mark as excluded</button></form>"
+                        if status == "important"
+                        else ""
+                    )
                     + f"</li>"
                 )
                 if status == "important":
@@ -652,6 +696,9 @@ padding:26px;font-style:italic}}
 .allow-form{{display:inline-block;margin:0 0 0 12px}} .allow-button{{padding:6px 10px;
 font-size:12px;color:#137333;background:#fff;border:1px solid #b7dfc2}}
 .allow-button:hover{{background:#e6f4ea;border-color:#81c995}}
+.exclude-form{{display:inline-block;margin:0 0 0 12px}} .exclude-button{{padding:6px 10px;
+font-size:12px;color:#c5221f;background:#fff;border:1px solid #f28b82}}
+.exclude-button:hover{{background:#fce8e6;border-color:#e06c65}}
 .status{{border-radius:999px;padding:3px 9px;font-size:12px}}
 .important{{background:#e6f4ea;color:#137333}} .excluded{{background:#fce8e6;color:#c5221f}}
 .unknown{{background:#f1f3f4;color:#5f6368}}
