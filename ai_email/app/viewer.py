@@ -205,6 +205,8 @@ class EmailViewerHandler(BaseHTTPRequestHandler):
                 self._reply(route_parts[1])
             elif len(route_parts) == 3 and route_parts[2] == "allow-sender":
                 self._allow_sender(route_parts[1])
+            elif len(route_parts) == 3 and route_parts[2] == "exclude-sender":
+                self._exclude_sender(route_parts[1])
             elif len(route_parts) == 3 and route_parts[2] == "mark-excluded":
                 self._mark_excluded(route_parts[1])
             else:
@@ -218,6 +220,7 @@ class EmailViewerHandler(BaseHTTPRequestHandler):
             if len(route_parts) == 3 and route_parts[2] in {
                 "reply",
                 "allow-sender",
+                "exclude-sender",
                 "mark-excluded",
             }:
                 # Keep the browser's Home Assistant ingress prefix. The
@@ -250,12 +253,22 @@ class EmailViewerHandler(BaseHTTPRequestHandler):
             str(value) for value in settings.get("approved_senders", [])
             if isinstance(value, str) and value.strip()
         )
+        excluded = sorted(
+            str(value) for value in settings.get("excluded_senders", [])
+            if isinstance(value, str) and value.strip()
+        )
         sender_rows = "".join(
             f'<li><span>{html.escape(sender)}</span>'
             f'<button class="remove" type="submit" name="remove_sender" '
             f'value="{html.escape(sender, quote=True)}">Remove</button></li>'
             for sender in approved
         ) or '<li class="empty">No approved senders yet.</li>'
+        excluded_rows = "".join(
+            f'<li><span>{html.escape(sender)}</span>'
+            f'<button class="remove" type="submit" name="remove_excluded_sender" '
+            f'value="{html.escape(sender, quote=True)}">Remove</button></li>'
+            for sender in excluded
+        ) or '<li class="empty">No excluded senders yet.</li>'
         content = f"""<!doctype html><html><head><meta charset="utf-8">
 <title>AI Email Settings</title><style>
 body{{margin:0;padding-bottom:42px;background:#f4f6f8;font:15px system-ui,sans-serif;color:#202124}}
@@ -284,6 +297,8 @@ Direct personal messages and important financial or security messages should be 
 required>{html.escape(criteria)}</textarea><br><button class="save" type="submit">Save classification rules</button></form></section>
 <section><h2>Always-allowed senders</h2><p class="help">Messages from these addresses bypass AI classification and are always placed in Included / Allowed.</p>
 <form method="post" action="config"><ul>{sender_rows}</ul></form></section>
+<section><h2>Always-excluded senders</h2><p class="help">Messages from these addresses bypass AI classification and are always placed in Excluded.</p>
+<form method="post" action="config"><ul>{excluded_rows}</ul></form></section>
 <footer><a href="./">← Back to AI Email</a></footer></main></body></html>"""
         self._send(HTTPStatus.OK, "text/html; charset=utf-8", content.encode("utf-8"))
 
@@ -291,6 +306,7 @@ required>{html.escape(criteria)}</textarea><br><button class="save" type="submit
         length = int(self.headers.get("Content-Length", "0"))
         form = parse_qs(self.rfile.read(length).decode("utf-8"), keep_blank_values=True)
         remove_sender = form.get("remove_sender", [""])[0].strip().lower()
+        remove_excluded_sender = form.get("remove_excluded_sender", [""])[0].strip().lower()
         criteria = form.get("classification_criteria", [""])[0].strip()
         settings_path = Path(self.event_config.get("settings_path", str(self.root.parent / "settings.json")))
         settings = self._read_settings(settings_path)
@@ -300,6 +316,12 @@ required>{html.escape(criteria)}</textarea><br><button class="save" type="submit
                 value for value in approved
                 if str(value).strip().lower() != remove_sender
             ] if isinstance(approved, list) else []
+        elif remove_excluded_sender:
+            excluded = settings.get("excluded_senders", [])
+            settings["excluded_senders"] = [
+                value for value in excluded
+                if str(value).strip().lower() != remove_excluded_sender
+            ] if isinstance(excluded, list) else []
         elif criteria:
             settings["classification_criteria"] = criteria
         else:
@@ -342,6 +364,41 @@ required>{html.escape(criteria)}</textarea><br><button class="save" type="submit
             self._publish_processed(message_id, message, metadata["summary"])
         except (OSError, urllib.error.URLError) as error:
             LOGGER.error("Could not update Home Assistant after allowing %s: %s", message_id, error)
+
+    def _exclude_sender(self, message_id: str) -> None:
+        message = self._load(message_id)
+        sender = _email_address(_decoded_header(message, "From")).lower()
+        if not sender:
+            raise ValueError("This email does not contain a sender address")
+        settings_path = Path(
+            self.event_config.get("settings_path", str(self.root.parent / "settings.json"))
+        )
+        settings = self._read_settings(settings_path)
+        excluded = settings.get("excluded_senders", [])
+        excluded_senders = {
+            str(value).strip().lower() for value in excluded
+        } if isinstance(excluded, list) else set()
+        excluded_senders.add(sender)
+        settings["excluded_senders"] = sorted(excluded_senders)
+        settings_path.write_text(json.dumps(settings), encoding="utf-8")
+
+        metadata = self._metadata(message_id)
+        metadata["status"] = "excluded"
+        metadata["summary"] = "Sender manually added to the always-excluded list."
+        metadata_path = self.root / f"{message_id}.json"
+        metadata_path.write_text(json.dumps(metadata), encoding="utf-8")
+
+        message_header_id = _decoded_header(message, "Message-ID")
+        try:
+            self._publish_deleted(message_id, message_header_id)
+            self._publish_processed(
+                message_id,
+                message,
+                metadata["summary"],
+                status="excluded",
+            )
+        except (OSError, urllib.error.URLError) as error:
+            LOGGER.error("Could not update Home Assistant after excluding %s: %s", message_id, error)
 
     def _mark_excluded(self, message_id: str) -> None:
         message = self._load(message_id)
@@ -495,7 +552,7 @@ required>{html.escape(criteria)}</textarea><br><button class="save" type="submit
         if not sender or "@" not in sender or any(char.isspace() for char in sender):
             raise ValueError(
                 "Configure smtp_from or imap_username as a complete email address, "
-                "such as huseman@huseman.co"
+                "such as Youremail@gmail.com"
             )
         reply["From"] = sender
         reply["To"] = recipient
@@ -649,6 +706,14 @@ required>{html.escape(criteria)}</textarea><br><button class="save" type="submit
                         f'<button class="exclude-button" type="submit" '
                         f'onclick="return confirm(\'Mark this email as excluded?\');">'
                         "Mark as excluded</button></form>"
+                        if status == "important"
+                        else ""
+                    )
+                    + (
+                        f'<form class="exclude-form" method="post" action="email/{message_id}/exclude-sender">'
+                        f'<button class="exclude-button" type="submit" '
+                        f'onclick="return confirm(\'Always exclude messages from {html.escape(sender, quote=True)}?\');">'
+                        "Always exclude sender</button></form>"
                         if status == "important"
                         else ""
                     )

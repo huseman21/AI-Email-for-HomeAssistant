@@ -64,6 +64,21 @@ def approved_senders() -> set[str]:
     return set()
 
 
+def excluded_senders() -> set[str]:
+    try:
+        with SETTINGS_PATH.open(encoding="utf-8") as settings_file:
+            values = json.load(settings_file).get("excluded_senders", [])
+        if isinstance(values, list):
+            return {
+                sender_address(str(value))
+                for value in values
+                if sender_address(str(value))
+            }
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
+        pass
+    return set()
+
+
 def decode_mime_header(value: str | None) -> str:
     if not value:
         return ""
@@ -261,6 +276,11 @@ async def http_json(
 
 async def classify(config: dict[str, Any], message: dict[str, str]) -> dict[str, str]:
     sender = sender_address(message["sender"])
+    if sender and sender in excluded_senders():
+        return {
+            "status": "excluded",
+            "summary": "Sender is on the always-excluded list.",
+        }
     if sender and sender in approved_senders():
         return {
             "status": "important",
