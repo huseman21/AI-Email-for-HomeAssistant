@@ -270,6 +270,7 @@ class EmailViewerHandler(BaseHTTPRequestHandler):
 
     def _config_page(self) -> None:
         settings_path = Path(self.event_config.get("settings_path", str(self.root.parent / "settings.json")))
+        total = sum(1 for _ in self.root.glob("*.eml"))
         criteria = self.event_config.get("classification_criteria", "")
         settings = self._read_settings(settings_path)
         criteria = str(settings.get("classification_criteria", criteria))
@@ -314,7 +315,8 @@ border:1px solid #f28b82;white-space:nowrap}} .remove:hover{{background:#fce8e6}
 .empty{{display:block;color:#6b7280;text-align:center;font-style:italic}}
 footer{{padding:20px 34px}} footer a{{color:#1967d2;text-decoration:none;font-weight:600}}
 </style></head><body><main><header><h1>Settings</h1>
-<p class="subtitle">Manage how AI Email classifies and handles incoming messages.</p></header>
+<p class="subtitle">Manage how AI Email classifies and handles incoming messages.</p>
+<p class="subtitle">Viewer {VIEWER_VERSION} · {total} saved messages</p></header>
 <section><h2>Classification rules</h2><p class="help">These instructions are sent to the local AI model.
 Direct personal messages and important financial or security messages should be included.</p>
 <form method="post" action="config"><textarea name="classification_criteria" rows="9"
@@ -733,14 +735,6 @@ required>{html.escape(criteria)}</textarea><br><button class="save" type="submit
                         else ""
                     )
                     + (
-                        f'<form class="exclude-form" method="post" action="email/{message_id}/mark-excluded">'
-                        f'<button class="exclude-button" type="submit" '
-                        f'onclick="return confirm(\'Mark this email as excluded?\');">'
-                        "Mark as excluded</button></form>"
-                        if status == "important"
-                        else ""
-                    )
-                    + (
                         f'<form class="exclude-form" method="post" action="email/{message_id}/exclude-sender">'
                         f'<button class="exclude-button" type="submit" '
                         f'onclick="return confirm(\'Always exclude messages from {html.escape(sender, quote=True)}?\');">'
@@ -810,7 +804,6 @@ color:#e8eaed;font-size:12px;box-shadow:0 -2px 8px #0003}}
 <header class="page-header"><h1>AI Email</h1>
 <p class="subtitle">Review messages classified by your local AI model.</p></header>
 <div class="toolbar"><a href="config">Settings</a>
-<span class="subtitle">Viewer {VIEWER_VERSION} · {total} saved messages</span>
 <form method="post" onsubmit="return confirm('Delete all saved emails? This cannot be undone.');">
 <button type="submit">Delete all emails</button></form></div>
 <section class="section"><div class="section-header"><div><h2>Included / Allowed</h2>
