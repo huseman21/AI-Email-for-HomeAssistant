@@ -557,6 +557,11 @@ async def run() -> None:
             "llm_provider": provider,
             "llm_base_url": base_url,
             "llm_api_key": str(config.get("llm_api_key", "")),
+            "homeassistant_api_url": (
+                "http://supervisor/core/api"
+                if supervisor_token
+                else "http://homeassistant:8123/api"
+            ),
             "imap_host": str(config.get("imap_host", "")),
             "imap_port": str(config.get("imap_port", 143)),
             "imap_security": str(config.get("imap_security", "starttls")),

@@ -152,7 +152,21 @@ class EmailViewerHandler(BaseHTTPRequestHandler):
         llm_url = self.event_config.get("llm_base_url", "")
         llm_online = False
         try:
-            if llm_url:
+            if llm_provider == "home_assistant":
+                endpoint = (
+                    self.event_config.get("homeassistant_api_url", "").rstrip("/")
+                    + "/config"
+                )
+                token = self.event_config.get("token", "").strip()
+                if endpoint and token:
+                    request = urllib.request.Request(
+                        endpoint,
+                        headers={"Authorization": "Bearer " + token},
+                        method="GET",
+                    )
+                    with urllib.request.urlopen(request, timeout=3):
+                        llm_online = True
+            elif llm_url:
                 endpoint = llm_url.rstrip("/") + (
                     "/api/tags" if llm_provider == "ollama" else "/models"
                 )
