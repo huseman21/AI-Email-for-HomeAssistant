@@ -188,7 +188,6 @@ def fetch_unread(
     if not bool(config.get("imap_verify_ssl", False)):
         context.check_hostname = False
         context.verify_mode = ssl.CERT_NONE
-        LOGGER.warning("IMAP TLS certificate verification is disabled")
     connection: Any | None = None
     try:
         if security == "ssl":

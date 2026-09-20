@@ -716,7 +716,7 @@ required>{html.escape(criteria)}</textarea><br><button class="save" type="submit
                         f'<button class="delete-button" type="submit" '
                         "onclick=\"return confirm('Delete this email? This cannot be undone.');\">"
                         "Delete</button></form>"
-                        if status == "excluded"
+                        if status in {"important", "excluded"}
                         else ""
                     )
                     + (
@@ -747,7 +747,8 @@ required>{html.escape(criteria)}</textarea><br><button class="save" type="submit
         excluded_listing = "".join(excluded_rows) or '<li class="empty">No excluded emails yet.</li>'
         total = len(included_rows) + len(excluded_rows)
         content = f"""<!doctype html>
-<html><head><meta charset="utf-8"><title>AI Email</title>
+<html><head><meta charset="utf-8"><meta http-equiv="refresh" content="60">
+<title>AI Email</title>
 <style>
 body{{margin:0;padding-bottom:42px;background:#f4f6f8;font:15px system-ui,sans-serif;color:#202124}}
 main{{max-width:980px;margin:32px auto;background:#fff;border:1px solid #e1e5e9;

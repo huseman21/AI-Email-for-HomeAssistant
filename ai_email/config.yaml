@@ -1,5 +1,5 @@
 name: AI Email
-version: "1.5.18"
+version: "1.5.19"
 slug: ai_email
 description: Locally classify unread IMAP email with a configurable LLM and publish Home Assistant events.
 startup: services
