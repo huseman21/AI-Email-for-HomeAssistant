@@ -103,35 +103,67 @@ def parse_json_response(response_text: str) -> dict[str, str]:
     candidate = response_text.strip()
     if not candidate:
         raise ValueError("LLM returned an empty response; check the model and prompt")
-    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", candidate, re.DOTALL)
+    parsed: object | None = None
+    json_candidates = [candidate]
+    fenced = re.search(r"```(?:json)?\s*(.*?)\s*```", candidate, re.DOTALL | re.IGNORECASE)
     if fenced:
-        candidate = fenced.group(1)
-    try:
-        parsed = json.loads(candidate)
-    except json.JSONDecodeError as error:
-        # Some local instruct models add an explanation or truncate the final
-        # closing brace despite being asked for JSON. Recover only the two
-        # fields required by the classifier.
+        json_candidates.insert(0, fenced.group(1).strip())
+    object_match = re.search(r"\{.*\}", candidate, re.DOTALL)
+    if object_match:
+        json_candidates.append(object_match.group(0))
+    last_error: json.JSONDecodeError | None = None
+    for json_candidate in json_candidates:
+        try:
+            parsed = json.loads(json_candidate)
+            break
+        except json.JSONDecodeError as error:
+            last_error = error
+            repaired = re.sub(r",\s*([}\]])", r"\1", json_candidate)
+            if repaired != json_candidate:
+                try:
+                    parsed = json.loads(repaired)
+                    break
+                except json.JSONDecodeError as repair_error:
+                    last_error = repair_error
+    if parsed is None:
         status_match = re.search(
-            r'"status"\s*:\s*"(important|excluded)"', response_text, re.IGNORECASE
+            r"(?:[\"']?status[\"']?\s*[:=]\s*|status\s+(?:is|was)\s+|"
+            r"(?:classification|classified)\s+(?:is|was|as)\s+)"
+            r"[\"']?(important|excluded)\b",
+            response_text,
+            re.IGNORECASE,
         )
         summary_match = re.search(
-            r'"summary"\s*:\s*"((?:\\.|[^"\\])*)"', response_text, re.DOTALL
+            r"[\"']?summary[\"']?\s*[:=]\s*[\"']?((?:\\.|[^\"'\r\n])*)[\"']?",
+            response_text,
+            re.DOTALL,
         )
-        if not status_match or not summary_match:
-            raise error
-        parsed = {
-            "status": status_match.group(1).lower(),
-            "summary": bytes(summary_match.group(1), "utf-8").decode(
-                "unicode_escape"
-            ),
-        }
+        if status_match:
+            parsed = {
+                "status": status_match.group(1).lower(),
+                "summary": (
+                    summary_match.group(1).strip()
+                    if summary_match
+                    else "Classification returned by the configured AI agent."
+                ),
+            }
+        elif last_error:
+            raise ValueError(
+                "LLM response did not contain a valid classification JSON object: "
+                + response_text[:300]
+            ) from last_error
+        else:
+            raise ValueError("LLM response did not contain a classification")
     if not isinstance(parsed, dict):
         raise ValueError("LLM response was not a JSON object")
     status = parsed.get("status")
     summary = parsed.get("summary")
-    if status not in {"important", "excluded"} or not isinstance(summary, str):
-        raise ValueError("LLM JSON must contain a valid status and summary")
+    if isinstance(status, str):
+        status = status.strip().lower()
+    if not isinstance(summary, str) or not summary.strip():
+        summary = "Classification returned by the configured AI agent."
+    if status not in {"important", "excluded"}:
+        raise ValueError("LLM response must classify the email as important or excluded")
     return {"status": status, "summary": summary[:500]}
 
 
@@ -290,7 +322,8 @@ async def classify(config: dict[str, Any], message: dict[str, str]) -> dict[str,
         f"these criteria: {classification_criteria(config)}\n\n"
         f"Sender: {message['sender']}\nSubject: {message['subject']}\n"
         f"Body:\n{message['body']}\n\n"
-        "Respond strictly in valid JSON format with double quotes: "
+        "Respond with exactly one valid JSON object and no Markdown, code fences, "
+        "explanation, or extra text. Use double quotes and exactly these fields: "
         '{"status":"important" or "excluded","summary":"short summary"}'
     )
     provider = str(config.get("llm_provider", "ollama")).strip().lower()
@@ -364,8 +397,9 @@ async def classify(config: dict[str, Any], message: dict[str, str]) -> dict[str,
                 {
                     "role": "system",
                     "content": (
-                        "Return only one complete JSON object. Do not use Markdown, "
-                        "code fences, explanations, or any text before or after it."
+                        "Return exactly one complete JSON object with status and summary. "
+                        "Do not use Markdown, code fences, explanations, or any text "
+                        "before or after it."
                     ),
                 },
                 {"role": "user", "content": prompt},
